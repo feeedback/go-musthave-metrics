@@ -7,11 +7,10 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
-		panic(err)
-	}
-}
+	mux := http.NewServeMux()
 
-func run() error {
-	return http.ListenAndServe(`:8080`, http.HandlerFunc(handlers.Webhook))
+	mux.HandleFunc("POST /update/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandler)
+	mux.HandleFunc("GET /{metricName}", handlers.GetMetricHandler)
+
+	http.ListenAndServe(":8080", mux)
 }
