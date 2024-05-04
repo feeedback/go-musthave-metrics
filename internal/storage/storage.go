@@ -1,6 +1,8 @@
 package storage
 
-import "sync"
+import (
+	"sync"
+)
 
 type MetricType string
 
@@ -9,39 +11,82 @@ const (
 	Counter MetricType = "counter"
 )
 
+type (
+	CounterValue int64
+	GaugeValue   float64
+)
 type Metric struct {
 	Type  MetricType
 	Name  string
-	Value float64
+	Value any
+}
+
+type MetricCounter struct {
+	Type  MetricType
+	Name  string
+	Value CounterValue
+}
+type MetricGauge struct {
+	Type  MetricType
+	Name  string
+	Value GaugeValue
 }
 
 type MemStorage struct {
-	Metrics map[string]Metric
-	mutex   sync.Mutex
+	MetricsCounter map[string]MetricCounter
+	MetricsGauge   map[string]MetricGauge
+	mutex          sync.Mutex
 }
 
 func (s *MemStorage) UpdateMetric(metric Metric) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if existingMetric, ok := s.Metrics[metric.Name]; ok {
-		switch metric.Type {
-		case Gauge:
-			existingMetric.Value = metric.Value
-		case Counter:
-			existingMetric.Value += metric.Value
+	switch metric.Type {
+	case Gauge:
+		value := GaugeValue(metric.Value.(float64))
+
+		if existingMetric, ok := s.MetricsGauge[metric.Name]; ok {
+			existingMetric.Value += value
+
+			s.MetricsGauge[metric.Name] = existingMetric
+		} else {
+			s.MetricsGauge[metric.Name] = MetricGauge{metric.Type, metric.Name, value}
 		}
-		s.Metrics[metric.Name] = existingMetric
-	} else {
-		s.Metrics[metric.Name] = metric
+
+	case Counter:
+		incrementValue := CounterValue(metric.Value.(int64))
+
+		if existingMetric, ok := s.MetricsCounter[metric.Name]; ok {
+			existingMetric.Value = incrementValue
+
+			s.MetricsCounter[metric.Name] = existingMetric
+		} else {
+			s.MetricsCounter[metric.Name] = MetricCounter{metric.Type, metric.Name, incrementValue}
+		}
 	}
+
 }
 
-func (s *MemStorage) GetMetric(name string) (Metric, bool) {
+func (s *MemStorage) GetMetric(name string, metricType MetricType) (Metric, bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	metric, ok := s.Metrics[name]
+	var metric Metric
+	var metricCounter MetricCounter
+	var metricGauge MetricGauge
+	var ok bool
+
+	switch metricType {
+	case Gauge:
+		if metricGauge, ok = s.MetricsGauge[name]; ok {
+			metric = Metric{metricGauge.Type, metricGauge.Name, metricGauge.Value}
+		}
+	case Counter:
+		if metricCounter, ok = s.MetricsCounter[name]; ok {
+			metric = Metric{metricCounter.Type, metricCounter.Name, metricCounter.Value}
+		}
+	}
 	return metric, ok
 }
 

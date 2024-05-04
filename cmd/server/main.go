@@ -10,7 +10,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /update/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricHandler)
-	mux.HandleFunc("GET /{metricName}", handlers.GetMetricHandler)
+	mux.HandleFunc("GET /{metricType}/{metricName}", handlers.GetMetricHandler)
 
 	http.ListenAndServe(":8080", mux)
 }

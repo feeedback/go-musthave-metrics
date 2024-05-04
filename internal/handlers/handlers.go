@@ -12,14 +12,16 @@ var storage *storageModule.MemStorage
 
 func init() {
 	storage = &storageModule.MemStorage{
-		Metrics: make(map[string]storageModule.Metric),
+		MetricsCounter: make(map[string]storageModule.MetricCounter),
+		MetricsGauge:   make(map[string]storageModule.MetricGauge),
 	}
 }
 
 func GetMetricHandler(w http.ResponseWriter, req *http.Request) {
+	metricType := req.PathValue("metricType")
 	metricName := req.PathValue("metricName")
 
-	metricValue, metricExists := storage.GetMetric(metricName)
+	metricValue, metricExists := storage.GetMetric(metricName, storageModule.MetricType(metricType))
 	if !metricExists {
 		http.Error(w, "Metric not exists", http.StatusNotFound)
 		return
@@ -41,10 +43,22 @@ func UpdateMetricHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	metricType := storageModule.MetricType(metricTypeRaw)
 
-	metricValue, err := strconv.ParseFloat(metricValueStr, 64)
-	if err != nil {
-		http.Error(w, "Invalid metric value", http.StatusBadRequest)
-		return
+	var metricValue interface{}
+	var err error
+
+	switch metricType {
+	case storageModule.Gauge:
+		metricValue, err = strconv.ParseFloat(metricValueStr, 64)
+		if err != nil {
+			http.Error(w, "Invalid metric value", http.StatusBadRequest)
+			return
+		}
+	case storageModule.Counter:
+		metricValue, err = strconv.ParseInt(metricValueStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid metric value", http.StatusBadRequest)
+			return
+		}
 	}
 
 	if metricName == "" {
