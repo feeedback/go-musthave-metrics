@@ -66,7 +66,17 @@ func sendMetric[ValueType storage.CounterValue | storage.GaugeValue](metricType 
 
 	req, _ := http.NewRequest("POST", url, nil)
 	req.Header.Set("Content-Type", "text/plain")
-	http.DefaultClient.Do(req)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Printf("Error sending metric: %v\n", err)
+	}
+
+	defer func() {
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}()
 }
 
 func collectMetrics() {
